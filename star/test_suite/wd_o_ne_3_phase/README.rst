@@ -26,7 +26,7 @@ pgstar commands used for the plots above:
 
 .. code-block:: console
 
-&pgstar
+ &pgstar
 
  file_white_on_black_flag = .true. ! white_on_black flags -- true means white foreground color on black background
  file_device = 'png'            ! png
@@ -72,8 +72,7 @@ pgstar commands used for the plots above:
 
         pgstar_model_coord = 0.96
 
-/ ! end of pgstar namelist
-
+ / ! end of pgstar namelist
 
 Last-Updated: 30Jul2026 (MESA 26.04.1) by mcastrotapia.
 
