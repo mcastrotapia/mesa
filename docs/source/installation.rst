@@ -22,10 +22,6 @@ The minimum system requirements for MESA are:
 Most laptop or desktop computers built in the last three years will
 satisfy these requirements.
 
-Ensure you have Python (3.5 or newer) installed on your system
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. warning:: As of r24.08.1, building MESA now requires Python (3.5 or newer) to be installed.
-
 Install the MESA SDK
 ^^^^^^^^^^^^^^^^^^^^
 
@@ -41,7 +37,7 @@ the details of setting it up.
 
    The MESA SDK itself has a few dependencies you may need
    to install manually, including `binutils`, `make`,
-   `Perl`, `X11`, `Z` and `C` shell on Linux and `Xcode`,
+   `Perl`, `Python`, `X11`, `Z` and `C` shell on Linux and `Xcode`,
    `Xcode command line tools` and `Xquartz` on Mac. See "prerequisites"
    section on the `MESA SDK website
    <http://user.astro.wisc.edu/~townsend/static.php?ref=mesasdk>`__
@@ -52,11 +48,6 @@ If you would prefer to use ifort (the MESA SDK uses gfortran), that is
 also an option, so long as you use ifort 14 or later. Even if you choose
 to use ifort, you should still visit the MESA SDK website to get a feel
 for the other MESA requirements.
-
-Not using the MESA SDK means you'll need to replace the file
-:file:`$MESA_DIR/utils/makefile_header` with a version customized to your
-system. There's a template to get you started at
-:file:`$MESA_DIR/utils/makefile_header_non_mesasdk`.
 
 Regardless of whether you use the MESA SDK or ifort, and whether your
 machine runs macOS or Linux, the output of MESA should be bit-for-bit
@@ -84,7 +75,7 @@ free to rename it, just make sure to set MESA_DIR accordingly (see the
 next section).
 
 You can also download zip files of `older MESA releases <https://doi.org/10.5281/zenodo.2602941>`__.
-If you plan to do so, please read :ref:`this FAQ entry <faq:Installing Older Versions of MESA>`.
+If you plan to do so, please read :ref:`this FAQ entry <faq:Installing Older (before 25.XX) Versions of MESA>`.
 
 .. _environment:
 
@@ -93,8 +84,8 @@ Set your environment variables
 
 The easiest way to make sure that your system is always configured
 appropriately is to define the necessary environment variables in
-your `shell start-up file <https://kb.iu.edu/d/abdy>`__. The file that
-you need to edit will depend on `which shell you're using
+your `shell start-up file <https://servicenow.iu.edu/kb?id=kb_article_view&sysparm_article=KB0023946>`__.
+The file that you need to edit will depend on `which shell you're using
 <https://askubuntu.com/questions/590899/how-do-i-check-which-shell-i-am-using>`__.
 You can find out by running ``echo $0``. The default on most Linux
 distros is bash, in which case you need to edit ``$HOME/.bashrc``. If

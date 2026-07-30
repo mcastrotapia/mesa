@@ -818,6 +818,15 @@
          call set_j_rot_flag(id, j_rot_flag, ierr)
       end subroutine star_set_j_rot_flag
 
+      subroutine remesh_for_TDC_pulsation(id, ierr)
+         use set_flags, only: set_TDC_to_RSP2_mesh
+         integer, intent(in) :: id
+         integer, intent(out) :: ierr
+         type (star_info), pointer :: s
+         call star_ptr(id, s, ierr)
+         if (ierr /= 0) return
+         call set_TDC_to_RSP2_mesh(id, ierr)
+      end subroutine remesh_for_TDC_pulsation
 
       subroutine star_set_RSP2_flag(id, et_flag, ierr)
          use set_flags, only: set_RSP2_flag
@@ -1508,18 +1517,6 @@
          integer, intent(out) :: ierr
          call do_relax_opacity_factor(id, new_opacity_factor, dopacity_factor, ierr)
       end subroutine star_relax_opacity_factor
-
-
-      subroutine star_relax_Tsurf_factor(id, new_Tsurf_factor, dlogTsurf_factor, ierr)
-         use relax, only: do_relax_Tsurf_factor
-         integer, intent(in) :: id
-         real(dp), intent(in) :: new_Tsurf_factor
-         real(dp), intent(in) :: dlogTsurf_factor
-            ! change log10(Tsurf_factor) by at most this amount per step
-         integer, intent(out) :: ierr
-         call do_relax_Tsurf_factor(id, new_Tsurf_factor, dlogTsurf_factor, ierr)
-      end subroutine star_relax_Tsurf_factor
-
 
       ! kind_of_relax = 0 => target = new_omega
       ! kind_of_relax = 1 => target = new_omega_div_omega_crit
@@ -3110,16 +3107,17 @@
          type(auto_diff_real_star_order1), intent(out) :: &
             gradT, Y_face, conv_vel, D, Gamma
          integer, intent(out) :: ierr
-         type(auto_diff_real_star_order1) :: dV
+         type(auto_diff_real_star_order1) :: dV, energy
          type (star_info), pointer :: s
          call star_ptr(id, s, ierr)
          if (ierr /= 0) return
          dV = 0d0  ! dV = 1/rho - 1/rho_start and we assume rho = rho_start.
+         energy = 0d0 ! for flux limiting TDC only
          call Get_results(s, k, MLT_option, &
             r, L, T, P, opacity, rho, dV, chiRho, chiT, Cp, gradr, grada, scale_height, &
             iso, XH1, cgrav, m, gradL_composition_term, mixing_length_alpha, &
             alpha_semiconvection, thermohaline_coeff, &
-            mixing_type, gradT, Y_face, conv_vel, D, Gamma, ierr)
+            mixing_type, gradT, Y_face, conv_vel, D, Gamma, energy, ierr)
       end subroutine star_mlt_results
 
 

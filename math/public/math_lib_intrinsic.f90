@@ -20,12 +20,11 @@
 module math_lib
 
   use const_def, only: dp, pi
+  use utils_lib, only: is_inf, is_nan
 
   use math_io
   use math_pown
   use math_def
-
-  use IEEE_ARITHMETIC
 
   implicit none
 
@@ -88,7 +87,7 @@ module math_lib
      module procedure atanpi_
   end interface atanpi
 
-  real(dp), save :: ln10_m
+  real(dp) :: ln10_m
 
   private
 
@@ -147,7 +146,7 @@ contains
     real(dp), intent(in) :: x
     real(dp)             :: log_x
 
-    if (.NOT. IEEE_IS_FINITE(x)) then
+    if (is_nan(x) .or. is_inf(x)) then
 
        log_x = -99._dp
 
@@ -165,7 +164,7 @@ contains
     real(dp), intent(in) :: x
     real(dp)             :: log10_x
 
-    if (.NOT. IEEE_IS_FINITE(x)) then
+    if (is_nan(x) .or. is_inf(x)) then
 
        log10_x = -99._dp
 

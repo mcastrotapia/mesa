@@ -13,7 +13,7 @@ There are two ways to submit changes to MESA, depending on who you are.
 MESA developer
 --------------
 
-If you are a MESA developer then you will have commit access to the MESA repository on Github.
+If you are a MESA developer then you will have commit access to the MESA repository on GitHub.
 You must create an account on `GitHub <https://github.com/>`__.  The
 MESA organization is called `MESAHub <https://github.com/MESAHub/>`__.
 After you are registered on GitHub, you can be invited to the
@@ -63,11 +63,11 @@ clone over SSH, do::
 
 This will create the MESA repository in a directory named ``mesa``.
 
-For this to work you will need to have setup ssh keys and added them to your github account:
+For this to work you will need to have set up SSH keys and added them to your GitHub account:
 
-#. `Generate a ssh key <https://docs.github.com/en/github/authenticating-to-github/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent>`__
+#. `Generate an SSH key <https://docs.github.com/en/github/authenticating-to-github/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent>`__
 
-#. `Add a ssh key to Github <https://docs.github.com/en/github/authenticating-to-github/adding-a-new-ssh-key-to-your-github-account>`__
+#. `Add an SSH key to GitHub <https://docs.github.com/en/github/authenticating-to-github/adding-a-new-ssh-key-to-your-github-account>`__
 
 #. `Verify it works <https://docs.github.com/en/github/authenticating-to-github/testing-your-ssh-connection>`__
 
@@ -102,6 +102,8 @@ MESA development uses the following branching model:
 * **release branches** --- Branched from main at the time of the first release candidate.  Any final fixes can be backported (cherry-picked or merged) to ``main``.
 
 The line between what should be a feature branch / pull request and what's committed straight onto the main branch can be drawn based on how disruptive a change is expected to be. If it has the potential to break test suite cases, don't commit it directly to main.  Use a branch.
+
+If you are planning a backward-incompatible change, discuss it with with the broader developer team before substantial development begins.
 
 
 Making a commit

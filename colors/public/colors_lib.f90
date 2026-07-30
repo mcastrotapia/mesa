@@ -19,10 +19,11 @@
 
 module colors_lib
 
-   use const_def, only: dp, strlen
+   use const_def, only: dp, strlen, mesa_dir
    use bolometric, only: calculate_bolometric
    use synthetic, only: calculate_synthetic
-   use colors_utils, only: read_strings_from_file
+   use colors_utils, only: read_strings_from_file, load_lookup_table, load_filter, load_vega_sed, &
+                           resolve_path, load_flux_cube, build_unique_grids, build_grid_to_lu_map
    use colors_history, only: how_many_colors_history_columns, data_for_colors_history_columns
 
    implicit none
@@ -33,21 +34,22 @@ module colors_lib
    public :: alloc_colors_handle, alloc_colors_handle_using_inlist, free_colors_handle
    public :: colors_ptr
    public :: colors_setup_tables, colors_setup_hooks
-   ! Main functions
+
    public :: calculate_bolometric, calculate_synthetic
    public :: how_many_colors_history_columns, data_for_colors_history_columns
-   ! Old bolometric correction functions that MESA expects (stub implementations, remove later):
+   ! old bolometric correction stubs that MESA expects (remove later):
    public :: get_bc_id_by_name, get_lum_band_by_id, get_abs_mag_by_id
    public :: get_bc_by_id, get_bc_name_by_id, get_bc_by_name
    public :: get_abs_bolometric_mag, get_abs_mag_by_name, get_bcs_all
    public :: get_lum_band_by_name
+
 contains
 
    ! call this routine to initialize the colors module.
    ! only needs to be done once at start of run.
-   ! Reads data from the 'colors' directory in the data_dir.
-   ! If use_cache is true and there is a 'colors/cache' directory, it will try that first.
-   ! If it doesn't find what it needs in the cache,
+   ! reads data from the 'colors' directory in the data_dir.
+   ! if use_cache is true and there is a 'colors/cache' directory, it will try that first.
+   ! if it doesn't find what it needs in the cache,
    ! it reads the data and writes the cache for next time.
    subroutine colors_init(use_cache, colors_cache_dir, ierr)
       use colors_def, only: colors_def_init, colors_use_cache, colors_is_initialized
@@ -75,11 +77,13 @@ contains
    end function alloc_colors_handle
 
    integer function alloc_colors_handle_using_inlist(inlist, ierr) result(handle)
-      use colors_def, only: do_alloc_colors, colors_is_initialized
+      use colors_def, only: Colors_General_Info, do_alloc_colors, colors_is_initialized, get_colors_ptr
       use colors_ctrls_io, only: read_namelist
       character(len=*), intent(in) :: inlist  ! empty means just use defaults.
       integer, intent(out) :: ierr  ! 0 means AOK.
+      type(Colors_General_Info), pointer :: rq
       ierr = 0
+      handle = -1
       if (.not. colors_is_initialized) then
          ierr = -1
          return
@@ -88,6 +92,10 @@ contains
       if (ierr /= 0) return
       call read_namelist(handle, inlist, ierr)
       if (ierr /= 0) return
+      call get_colors_ptr(handle, rq, ierr)
+      if (ierr /= 0) return
+      ! skip colors table setup and hooks if use_colors = .false.
+      if (.not. rq%use_colors) return
       call colors_setup_tables(handle, ierr)
       call colors_setup_hooks(handle, ierr)
    end function alloc_colors_handle_using_inlist
@@ -117,22 +125,76 @@ contains
    end subroutine colors_ptr
 
    subroutine colors_setup_tables(handle, ierr)
-      use colors_def, only: colors_General_Info, get_colors_ptr, color_filter_names, num_color_filters
-      ! TODO: use load_colors, only: Setup_colors_Tables
+      use colors_def, only: Colors_General_Info, get_colors_ptr, color_filter_names, num_color_filters
+      use synthetic, only: compute_vega_zero_point, compute_ab_zero_point, compute_st_zero_point
       integer, intent(in) :: handle
       integer, intent(out):: ierr
 
-      type(colors_General_Info), pointer :: rq
-      logical, parameter :: use_cache = .true.
-      logical, parameter :: load_on_demand = .true.
+      type(Colors_General_Info), pointer :: rq
+      character(len=256) :: lookup_file, filter_dir, filter_filepath, vega_filepath
+      REAL, allocatable :: lookup_table(:, :)  ! unused but required by load_lookup_table
+      integer :: i
 
       ierr = 0
       call get_colors_ptr(handle, rq, ierr)
-      ! TODO: call Setup_colors_Tables(rq, use_cache, load_on_demand, ierr)
+      if (ierr /= 0) return
 
-      ! TODO: For now, don't use cache (future feature)
-      ! but rely on user specifying a single filters directory, and read it here
       call read_strings_from_file(rq, color_filter_names, num_color_filters, ierr)
+      if (ierr /= 0) return
+
+      ! load lookup table (stellar atmosphere grid)
+      if (.not. rq%lookup_loaded) then
+         lookup_file = trim(resolve_path(rq%stellar_atm))//'/lookup_table.csv'
+         call load_lookup_table(lookup_file, lookup_table, &
+                                rq%lu_file_names, rq%lu_logg, rq%lu_meta, rq%lu_teff)
+         rq%lookup_loaded = .true.
+         if (allocated(lookup_table)) deallocate (lookup_table)
+
+         ! build unique sorted grids once for fallback interpolation
+         call build_unique_grids(rq)
+
+         ! build the grid-to-lu mapping for O(1) stencil lookups
+         call build_grid_to_lu_map(rq)
+      end if
+
+      ! load vega SED
+      if (.not. rq%vega_loaded) then
+         vega_filepath = trim(resolve_path(rq%vega_sed))
+         call load_vega_sed(vega_filepath, rq%vega_wavelengths, rq%vega_fluxes)
+         rq%vega_loaded = .true.
+      end if
+
+      ! load filter transmission curves and precompute zero-points
+      if (.not. rq%filters_loaded) then
+         filter_dir = trim(resolve_path(rq%instrument))
+
+         allocate (rq%filters(num_color_filters))
+
+         do i = 1, num_color_filters
+            rq%filters(i)%name = color_filter_names(i)
+            filter_filepath = trim(filter_dir)//'/'//trim(color_filter_names(i))
+            call load_filter(filter_filepath, rq%filters(i)%wavelengths, rq%filters(i)%transmission)
+
+            ! precompute zero-points for all magnitude systems
+            rq%filters(i)%vega_zero_point = compute_vega_zero_point( &
+                                            rq%vega_wavelengths, rq%vega_fluxes, &
+                                            rq%filters(i)%wavelengths, rq%filters(i)%transmission)
+
+            rq%filters(i)%ab_zero_point = compute_ab_zero_point( &
+                                          rq%filters(i)%wavelengths, rq%filters(i)%transmission)
+
+            rq%filters(i)%st_zero_point = compute_st_zero_point( &
+                                          rq%filters(i)%wavelengths, rq%filters(i)%transmission)
+         end do
+
+         rq%filters_loaded = .true.
+      end if
+
+      ! try to load the full flux cube -- if allocation fails, cube_loaded stays
+      ! .false. and we fall back to loading individual SED files
+      if (.not. rq%cube_loaded) then
+         call load_flux_cube(rq, rq%stellar_atm)
+      end if
 
    end subroutine colors_setup_tables
 
@@ -150,9 +212,7 @@ contains
 
    end subroutine colors_setup_hooks
 
-   !-----------------------------------------------------------------------
-   ! Bolometric correction interface (stub implementations)
-   !-----------------------------------------------------------------------
+   ! bolometric correction stubs (legacy mesa interface)
 
    real(dp) function get_bc_by_name(name, log_Teff, log_g, M_div_h, ierr)
       character(len=*), intent(in) :: name
@@ -194,7 +254,7 @@ contains
 
    real(dp) function get_abs_bolometric_mag(lum)
       use const_def, only: dp
-      real(dp), intent(in) :: lum  ! Luminosity in lsun units
+      real(dp), intent(in) :: lum  ! luminosity in lsun
 
       get_abs_bolometric_mag = -99.9d0
    end function get_abs_bolometric_mag
@@ -204,7 +264,7 @@ contains
       real(dp), intent(in) :: log_Teff  ! log10 of surface temp
       real(dp), intent(in) :: M_div_h  ! [M/H]
       real(dp), intent(in) :: log_g  ! log_10 of surface gravity
-      real(dp), intent(in) :: lum  ! Luminosity in lsun units
+      real(dp), intent(in) :: lum  ! luminosity in lsun
       integer, intent(inout) :: ierr
 
       ierr = 0
@@ -216,7 +276,7 @@ contains
       real(dp), intent(in) :: log_Teff  ! log10 of surface temp
       real(dp), intent(in) :: log_g  ! log_10 of surface gravity
       real(dp), intent(in) :: M_div_h  ! [M/H]
-      real(dp), intent(in) :: lum  ! Luminosity in lsun units
+      real(dp), intent(in) :: lum  ! luminosity in lsun
       integer, intent(inout) :: ierr
 
       ierr = 0
@@ -239,7 +299,7 @@ contains
       real(dp), intent(in) :: log_Teff  ! log10 of surface temp
       real(dp), intent(in) :: M_div_h  ! [M/H]
       real(dp), intent(in) :: log_g  ! log_10 of surface gravity
-      real(dp), intent(in) :: lum  ! Total luminosity in lsun units
+      real(dp), intent(in) :: lum  ! luminosity in lsun
       integer, intent(inout) :: ierr
 
       ierr = 0
@@ -251,7 +311,7 @@ contains
       real(dp), intent(in) :: log_Teff  ! log10 of surface temp
       real(dp), intent(in) :: log_g  ! log_10 of surface gravity
       real(dp), intent(in) :: M_div_h  ! [M/H]
-      real(dp), intent(in) :: lum  ! Total luminosity in lsun units
+      real(dp), intent(in) :: lum  ! luminosity in lsun
       integer, intent(inout) :: ierr
 
       ierr = 0

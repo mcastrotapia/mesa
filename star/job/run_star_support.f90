@@ -322,6 +322,7 @@
               binary_controls, extras_controls, &
               id_from_read_star_job, inlist_fname, restart_filename, &
               dbg, binary_id, id, ierr)
+         use utils_lib, only: utils_OMP_SET_NUM_THREADS
          logical, intent(in) :: do_alloc_star, okay_to_restart, pgstar_ok
          logical :: restart
          interface
@@ -400,7 +401,7 @@
                s% solver_test_kap_partials .or. s% solver_test_net_partials) then
             if (s% solver_test_partials_k > 0 .and. s% solver_test_partials_dx_0 > 0) then
                write(*,*) 'Forcing single-thread mode for testing of module-level partials'
-               call omp_set_num_threads(1)
+               call utils_OMP_SET_NUM_THREADS(1)
             end if
          end if
 
@@ -1091,29 +1092,6 @@
          end if
       end subroutine relax_tau_factor
 
-
-      subroutine relax_Tsurf_factor(s)
-         type (star_info), pointer :: s
-         real(dp) :: next
-         include 'formats'
-         write(*,*) 'relax_to_this_Tsurf_factor < s% Tsurf_factor', &
-            s% job% relax_to_this_Tsurf_factor < s% Tsurf_factor
-         write(*,1) 'relax_to_this_Tsurf_factor', s% job% relax_to_this_Tsurf_factor
-         write(*,1) 's% Tsurf_factor', s% Tsurf_factor
-         if (s% job% relax_to_this_Tsurf_factor < s% Tsurf_factor) then
-            next = exp10(safe_log10(s% Tsurf_factor) - s% job% dlogTsurf_factor)
-            if (next < s% job% relax_to_this_Tsurf_factor) &
-               next = s% job% relax_to_this_Tsurf_factor
-         else
-            next = exp10(safe_log10(s% Tsurf_factor) + s% job% dlogTsurf_factor)
-            if (next > s% job% relax_to_this_Tsurf_factor) &
-               next = s% job% relax_to_this_Tsurf_factor
-         end if
-         s% Tsurf_factor = next
-         write(*,1) 'relax_Tsurf_factor', next, s% job% relax_to_this_Tsurf_factor
-      end subroutine relax_Tsurf_factor
-
-
       subroutine check_if_want_to_stop_warnings(s)
          use utils_lib
          type (star_info), pointer :: s
@@ -1481,12 +1459,10 @@
          type (star_info), pointer :: s
          integer :: j, i, ir
          integer, pointer :: net_reaction_ptr(:)
-         logical :: error
 
          include 'formats'
 
          ierr = 0
-         error = .false.
          call star_ptr(id, s, ierr)
          if (ierr /= 0) return
 
@@ -1513,7 +1489,6 @@
                write(*,*) 'Failed to find reaction_for_special_factor ' // &
                trim(s% job% reaction_for_special_factor(i)), &
                j, s% job% special_rate_factor(i)
-               error = .true.
                cycle
             end if
             s% rate_factors(j) = s% job% special_rate_factor(i)
@@ -1521,8 +1496,6 @@
                   trim(s% job% reaction_for_special_factor(i)), &
                   j, s% job% special_rate_factor(i)
          end do
-
-         if(error) call mesa_error(__FILE__,__LINE__)
 
       end subroutine set_rate_factors
 
@@ -1950,12 +1923,6 @@
                (s% job% set_initial_tau_factor .and. .not. restart)) then
             write(*,1) 'set_tau_factor', s% job% set_to_this_tau_factor
             s% tau_factor = s% job% set_to_this_tau_factor
-         end if
-
-         if (s% job% set_Tsurf_factor .or. &
-               (s% job% set_initial_Tsurf_factor .and. .not. restart)) then
-            write(*,1) 'set_Tsurf_factor', s% job% set_to_this_Tsurf_factor
-            s% Tsurf_factor = s% job% set_to_this_Tsurf_factor
          end if
 
          if (s% job% set_initial_age .and. .not. restart) then
@@ -2529,14 +2496,6 @@
             call star_relax_L_center( &
                id, s% job% new_L_center, s% job% dlgL_per_step, s% job% relax_L_center_dt, ierr)
             if (failed('star_relax_L_center',ierr)) return
-         end if
-
-         if (s% job% relax_Tsurf_factor .or. &
-               (s% job% relax_initial_Tsurf_factor .and. .not. restart)) then
-            write(*,1) 'relax_Tsurf_factor', s% job% relax_to_this_Tsurf_factor
-            call star_relax_Tsurf_factor( &
-               id, s% job% relax_to_this_Tsurf_factor, s% job% dlogTsurf_factor, ierr)
-            if (failed('star_relax_Tsurf_factor',ierr)) return
          end if
 
          if (s% job% relax_tau_factor .or. &

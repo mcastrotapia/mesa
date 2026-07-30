@@ -68,7 +68,7 @@
          if (s% rotation_flag) then
             new_J = total_angular_momentum(s)
             if (abs((old_J-new_J)/old_J)>1d-14) then
-               write(*,*) "Error in angular momemtum conservation from amr split merge"
+               write(*,*) "Error in angular momentum conservation from amr split merge"
                s% result_reason = adjust_mesh_failed
                s% termination_code = t_adjust_mesh_failed
                remesh_split_merge = terminate
@@ -375,6 +375,12 @@
             dx_actual = xR - xL
             if (logtau_zoning) dx_actual = -dx_actual  ! make dx_actual > 0
 
+
+            if (s% split_amr_ignore_core_cells .and. &
+            s%lnT(k)/ln10 >= s% split_amr_logT_for_ignore_core_cells) then
+               cycle
+            end if
+
             ! first check for cells that are too big and need to be split
             oversize_ratio = dx_actual/dx_baseline
             if (TooBig < oversize_ratio .and. s% dq(k) > 5d0*dq_min) then
@@ -387,8 +393,13 @@
 
             ! next check for cells that are too small and need to be merged
 
+            ! surface cells
             if (s% merge_amr_ignore_surface_cells .and. &
                   k<=s% merge_amr_k_for_ignore_surface_cells) cycle
+
+            ! core cells
+            if (s% merge_amr_ignore_core_cells .and. &
+                  s%lnT(k)/ln10>= s% merge_amr_logT_for_ignore_core_cells) cycle
 
             if (abs(dx_actual)>0d0) then
                undersize_ratio = max(dx_baseline/dx_actual, dq_min/s% dq(k))
@@ -1164,11 +1175,9 @@
             s% dPdr_dRhodr_info(ip) = s% dPdr_dRhodr_info(i)
          end if
 
-         if (i == 1) then
-            s% mlt_vc(ip) = s% mlt_vc(i)
-         else
-            s% mlt_vc(ip) = (mlt_vcL*dML + mlt_vcR*dMR)/dM
-         end if
+         ! mlt_vc is face-based, so a split creates a new interior face value here.
+         ! Interpolate using the same left/right orientation as tau(ip).
+         s% mlt_vc(ip) = mlt_vcR + (mlt_vcL - mlt_vcR)*dMR/dM
 
          s% tau(ip) = tauR + (tauL - tauR)*dMR/dM
          if (is_bad(s% tau(ip))) then
@@ -1231,7 +1240,6 @@
          s% lnT(ip) = s% lnT(i)
          s% T(ip) = s% T(i)
          s% D_mix(ip) = s% D_mix(i)
-         s% mlt_vc(ip) = s% mlt_vc(i)
          s% csound(ip) = s% csound(i)
          s% opacity(ip) = s% opacity(i)
          if (s% RTI_flag) s% alpha_RTI(ip) = s% alpha_RTI(i)
@@ -1451,5 +1459,3 @@
 
 
       end module adjust_mesh_split_merge
-
-

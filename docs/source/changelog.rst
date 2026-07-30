@@ -2,19 +2,163 @@
 Changelog
 *********
 
-.. warning:: As of r24.08.1, building MESA now requires Python (3.5 or newer) be installed.
-
 .. note:: This section describes changes present in the development version of MESA (``main`` branch) relative to the most recent release.
-
-
 
 
 Changes in main
 ===============
 
-Upgraded software license from LGPL-v2.1 to LGPL-v3.0
 
 .. _Backwards-incompatible changes main:
+
+Backwards-incompatible changes
+------------------------------
+
+The build system scripts have been modernized. This has lead to the following changes to the standard work directory:
+
+- The `mk` and `clean` scripts have been removed. They are replaced by running `make` and `make clean` respectively. The `rn` and `re` scripts remain as is.
+- The `star` and `binary` executables are now stored in the `build/bin` subfolder of the work directory.
+
+For a more in-depth look at the new build system, see :doc:`developing/build-system`. If you change the build system in any way (e.g. skipping tests, building dynamic/shared libraries), it is highly recommended to have a look at this document.
+
+``Tsurf_factor`` and the associated controls and history column have been removed as they affected nothing. These controls were effectively deprecated after the removal of the black body boundary condition in 21.12.1.
+
+.. _New Features main:
+
+New Features
+------------
+
+MESA's documentation now includes a generated :ref:`Test Suite Gallery <tagoverview>` using metadata from test case ``README.rst`` files. The gallery groups test cases by module, physics, numerical method, workflow, and stellar object or phase. This change makes it easier to understand the purpose of each test case, and can help users more easily find a useful starting point for a MESA project. Details on the implementation can be found in :ref:`developing/test_suite:Gallery tags`.
+
+Diffusive overshooting (overmixing) prescriptions now support a
+``step+exponential`` option, see :ref:`reference/controls:overshoot_scheme`.
+
+MESA no longer stops when reactions for which special rates are set are not in the nuclear network, only a warning is printed. This is intended to make it easier to test various network sizes without having to also change the list of special reactions.
+
+GYRE has been upgraded to 9.1.1, the most recent stable release. Changes since the previous release (8.1) included in MESA can be seen `here <https://github.com/rhdtownsend/gyre/releases>`__.
+
+The `MESA SDK <http://user.astro.wisc.edu/~townsend/static.php?ref=mesasdk>`__ recommended for compiling MESA has been updated to 26.6.1. Although this newer SDK is not required to successfully build MESA, it brings the benefit of restoring the cross-platform bit-for-bit compatibility that MESA once enjoyed (meaning that runs on Linux/Intel, MacOS/Intel and MacOS/ARM give identical results).
+
+.. _Bug Fixes main:
+
+Bug Fixes
+---------
+
+Fixed a bug where RSP photo restarts did not immediately reconstruct ``s% L``,
+which could leave ``s% L(1)`` with an uninitialized near-zero value and crash
+MESA when the KH timescale was recalculated on restart.
+
+Fixed a small bug where diffusive overshooting (overmixing) routines did not
+respect changes to the mixing length set by ``other_alpha_mlt``, and used the
+``mixing_length_alpha`` instead. See `gh-1003 <https://github.com/MESAHub/mesa/pull/1003>`_.
+
+The parameter ``report_max_infall_inside_fe_core`` was ignored in versions r25.12.1 and r26.4.1 and always had it's default value. See `gh-981 https://github.com/MESAHub/mesa/pull/981`_.
+
+``fe_core_infall_limit`` now obeys ``when_to_stop_rtol`` and ``when_to_stop_atol`` again (broken since r11532).
+
+.. note:: Before releasing a new version of MESA, move `Changes in main` to a new section below with the version number as the title, and add a new `Changes in main` section at the top of the file (see ``changelog_template.rst``).
+
+Changes in r26.4.1
+===================
+
+Important bug fix for ``r25.12.1`` raised by Jake B. Hassan: the colors module could select atmosphere metallicity from ``Zbase`` instead of photospheric ``[M/H]``. This could return solar-metallicity colors and SEDs for non-solar models. See :ref:`the known bugs entry <colors_zbase_bug>` and `gh-939 <https://github.com/MESAHub/mesa/pull/939>`_. We recommend that users using the new color module upgrade to this release.
+
+Important bug fix for ``r24.08.1`` and ``r25.12.1`` identified by Haakon Andresen: a bug in the reverse reaction rates module, introduced in ``r24.08.1``, used an incorrect mass exponent factor in some reverse detailed-balance rates. This is most relevant at higher temperatures in excess of ``2 GK`` during advanced burning stages, when reverse detailed-balance rates become important. See :ref:`the known bugs entry <reverse_rate_mass_exponent_bug>`, `gh-974 <https://github.com/MESAHub/mesa/issues/974>`_, and `gh-975 <https://github.com/MESAHub/mesa/pull/975>`_. We recommend that all users affected by this issue apply the fix or update to this release.
+
+.. _Backwards-incompatible changes r26.4.1:
+
+Backwards-incompatible changes
+------------------------------
+
+Colors
+~~~~~~
+
+- Colors data has moved from ``colors/data`` to ``data/colors_data``.
+- Colors paths now support repo-relative inputs such as ``data/colors_data/...``.
+
+.. _New Features r26.4.1:
+
+New Features
+------------
+
+Colors
+~~~~~~
+
+- Added ``Interp_rad`` to colors history output.
+- Added ``colors/test`` for colors unit tests.
+
+TDC
+~~~
+
+``TDC`` now contains new controls and physics bringing it into closer alignment with the Radial Stellar Pulsation module ``RSP``:
+
+-  ``TDC_alpha_M`` : The prefactor on the term accounting for hydrodynamic eddy viscous dissipation. This control is analogous to ``RSP_alfam``.
+-  ``TDC_alpha_C`` : The prefactor on the convective flux. This control is analogous to ``RSP_alfac``
+-  ``TDC_alpha_S`` : The prefactor on the convective source term, S . This control is analogous to ``RSP_alfas``
+-  ``TDC_alpha_M_use_explicit_mlt_vc_in_momentum_equation`` : A more numerically stable stencil for ``TDC_alpha_M`` in MESA's momentum equation.
+-  ``TDC_include_eturb_in_energy_equation`` : The option to include turbulent energy and eddy viscosity into MESA's energy equation.
+-  ``include_mlt_corr_to_TDC`` : The option to remove the Gamma/(1+Gamma) mlt correction to TDC, yielding the pure (Kuhfuß 1986) local convection model.
+-  ``use_rsp_form_of_scale_height`` : The option to calculate scale height by averaging P/rho onto faces together, similar to  ``RSP``.
+-  ``TDC_num_innermost_cells_forced_nonturbulent`` : An optional control for forcing central zones to be radiative.
+-  ``TDC_num_outermost_cells_forced_nonturbulent`` : An optional control for forcing surface zones to be radiative.
+
+``star`` now contains optional controls allowing one to remesh an envelope model similar to ``RSP``, by calling the public ``remesh_for_TDC_pulsation`` function contained within ``$MESA_DIR/star/public/star_lib.f90`` :
+
+-  ``TDC_hydro_nz`` : Analogous to ``RSP_nz``
+-  ``TDC_hydro_nz_outer`` : Analogous to ``RSP_nz_outer``
+-  ``TDC_hydro_T_anchor`` : Analogous to ``RSP_T_anchor``
+-  ``TDC_hydro_dq_1_factor`` : Analogous to ``RSP_dq_1_factor``
+-  ``TDC_hydro_use_mass_interp_face_values`` : This option determines whether face quantities are computed from simple averages or mass weighted averaging.
+-  ``remesh_for_TDC_pulsations_log_core_zoning`` : This option allows log zoning in the interior as opposed to a power law ( similar to ``RSP``).
+
+A new optional boundary condition ``use_RSP_L_eqn_outer_BC`` is available.
+
+Further details on the changes to ``TDC`` can be found in `Farag et al. (2026) <https://arxiv.org/abs/2603.15766>`_
+
+Other
+~~~~~
+
+Various documentation pages have received updates, fixing typos, cleaning up formatting, and fixing broken links. Notably, a description of the default nuclear network and its dynamic nature have been added.
+
+Support for SDK version 26.3.2.
+
+
+.. _Bug Fixes r26.4.1:
+
+Bug Fixes
+---------
+
+Colors
+~~~~~~
+
+- Fixed wrong scale used in AB zero-point.
+- Fixed colors atmosphere metallicity selection to use photospheric ``[M/H]`` from ``Z/X`` instead of ``Zbase``. See `gh-939 <https://github.com/MESAHub/mesa/pull/939>`_.
+- Added a new control ``z_over_x_ref`` for the reference ``Z/X`` used in the ``[M/H]`` calculation.
+- ``instrument``, ``stellar_atm``, and ``vega_sed`` now support relative paths.
+- Stella has been updated to work with the new colors module interface.
+- The centered finite difference approximations used in colors Hermite interpolation were improved to support non-uniform grids.
+- Active colors bolometric and photometry calculations now use Simpson integration instead of the old Romberg path.
+
+Rates
+~~~~~
+
+- Fixed a bug introduced in ``r24.08.1`` in the reverse reaction rates module that used an incorrect mass exponent factor in some reverse detailed-balance rates. This fixes an issue in ``r24.08.1`` and ``r25.12.1``. See `gh-974 <https://github.com/MESAHub/mesa/issues/974>`_ and `gh-975 <https://github.com/MESAHub/mesa/pull/975>`_.
+
+Other
+~~~~~
+
+- Realigned first row of headers in terminal output after changing ``lg_Lnuc`` to ``lg_Lnuc_tot``
+- Incorrect EoS blending near some FreeEoS edges `(gh-911) <https://github.com/MESAHub/mesa/issues/911>`_.
+- Kinetic energy calculations did not take ``mass_correction`` fully into account `(gh-913) <https://github.com/MESAHub/mesa/issues/913>`_.
+- Fixed a bug in ``star/private/timestep.f90`` where the ``delta_lg_XNe_cntr`` and ``delta_lg_XSi_cntr`` timestep controls were incorrectly checking the central ``o16`` abundance instead of ``ne20`` and ``si28``. See `gh-963 <https://github.com/MESAHub/mesa/pull/963>`_.
+- Fixed a bug in ``split_merge_amr`` where the convective velocity ``mlt_vc`` was not being interpolated correctly during mesh splitting, see `gh-975 <https://github.com/MESAHub/mesa/pull/975>`_.
+
+Changes in r25.12.1
+===================
+
+Upgraded software license from LGPL-v2.1 to LGPL-v3.0
+
+.. _Backwards-incompatible changes r25.12.1:
 
 Backwards-incompatible changes
 ------------------------------
@@ -24,9 +168,16 @@ Backwards-incompatible changes
 
 Removed ``file_extension`` option because it is redundant with ``file_device``. Delete ``file_extension`` from your inlists.
 
-Renamed pgstar ``pause``` option to ``pause_flag``` because pause is a reserved Fortran 77 keyword.
+Renamed pgstar ``pause`` option to ``pause_flag`` because pause is a reserved Fortran 77 keyword.
 
-.. _New Features main:
+For greater consistency and clarity between ``TDC`` and ``RSP``, the controls for ``MLT_option = TDC`` have been renamed to match their respective ``RSP``
+counterpart. See below:
+
+- ``alpha_TDC_DAMP`` has been renamed to ``TDC_alpha_D`` and is analogous to ``RSP_alfad``
+- ``alpha_TDC_DAMPR`` has been renamed to ``TDC_alpha_R`` and is analogous to ``RSP_gammar``
+- ``alpha_TDC_PtdVdt`` has been renamed to ``TDC_alpha_Pt`` and is analogous to ``RSP_alfap``
+
+.. _New Features r25.12.1:
 
 New Features
 ------------
@@ -68,10 +219,24 @@ Changed the default for ``use_radiation_corrected_transfer_rate =
 
 A pseudo drag term ``v_drag`` has been reintroduced for ``u_flag`` to damp spurious shocks.
 
-``hydro_rotation`` now contains the more accurate deformation fits from Fabry+2022, A&A 661, A123
+``hydro_rotation`` now contains the more accurate deformation fits from `Fabry et al. (2022) <https://ui.adsabs.harvard.edu/abs/2022A%26A...661A.123F/abstract>`_.
 
 Exposed ``star_utils`` functions ``star_weighted_smoothing``, ``star_threshold_smoothing``, ``star_kh_time_scale`` to the user.
 These functions can now be called in your custom ``run_star_extras.f90`` file, for data in a star, getting relevant timescales.
+
+The terminal header ``lg_Lnuc`` has been renamed to ``lg_Lnuc_tot`` as it includes photodisintegration and is analogous to the
+history column ``log_power_nuc_burn``, and is not equivalent to ``log_Lnuc`` which does not include photodisintegration.
+
+``hydro_rotation`` now supports the use of stellar-structure corrections for tidally deformed stars
+in the Roche potential. Following `Fabry et al. (2022) <https://ui.adsabs.harvard.edu/abs/2022A%26A...661A.123F/abstract>`_, ``binary/private/binary_roche_deformation.f90``
+calculates the corrections ``fp``, ``ft``, and the specific moments of inertial ``i_rot`` as function of
+the mass ratio and fractional radius r/RL.
+The values are interpolated from results of an integration grid (there are no simple analytical fits like in
+the rotating-star potential), with an estimated error lower than 2%.
+Currently, the supported mass-ratio range is -3 < log q < 3, and any radius larger than r/RL > 1.61 is evaluated
+at the edge of the grid.
+To start using tidal deformation corrections, put ``use_tidal_deformation = .true.`` in your ``&binary_controls``
+inlist.
 
 For calculations of the asymptotic gravity mode period spacing ``delta_Pg``,
 a new logical control ``delta_Pg_traditional`` has been introduced allowing users decide
@@ -95,10 +260,10 @@ The Fe core-collapse infall condition ``fe_core_infall_limit`` has been adjusted
 Users can switch between either choice with the new logical control ``report_max_infall_inside_fe_core``.
 See the ``&controls`` for further details.
 
-L2 mass-loss fraction according to Lu et al. (2023) is available as a public function in the bindary moduele:
+L2 mass-loss fraction according to Lu et al. (2023) is available as a public function in the binary module:
 ``binary_L2_mass_loss_fraction(donor_mass, accretor_mass, mass_transfer_rate, orbital_separation, disk_alpha, disk_mu, ierr)``.
 
-.. _Bug Fixes main:
+.. _Bug Fixes r25.12.1:
 
 Bug Fixes
 ---------
@@ -111,10 +276,11 @@ Fixed bug in binary photos. They were not saving the variables: ``CE_years_detac
 
 Fixed bug that ``Orbit_win_flag = .true.`` was not showing Orbit plot (pgbinary)
 
+Fixed a bug in ``other_mlt_results`` which resulted in the pre-ms model builder reporting a segfault. ``other_mlt_results`` should now support ``MLT_option = TDC`` as well. See `gh-874 <https://github.com/MESAHub/mesa/issues/874>`_.
+
 Removed unused parameters: ``fp_error_limit``, ``fp_min``, ``ft_error_limit``, ``ft_min``, ``retain_fallback_at_each_step``.
 
-
-.. note:: Before releasing a new version of MESA, move `Changes in main` to a new section below with the version number as the title, and add a new `Changes in main` section at the top of the file (see ```changelog_template.rst```).
+Fixed bug in residual calculation near P = 1, or T = 1
 
 
 Changes in r24.08.1
@@ -447,7 +613,7 @@ near 0.697.
 
 The ``fixed_Teff``, ``fixed_Tsurf``, ``fixed_Psurf``,  and ``fixed_Psurf_and_Tsurf``
 atmosphere options were removed in r15140. We have reimplemented them although we
-caution users that their implementation could conflict with ``mlt_option = 'TDC'``.
+caution users that their implementation could conflict with ``MLT_option = 'TDC'``.
 
 The EOS coverage regions have been updated to fall back to ideal gas in a region
 previously covered by HELM where it returned unphysical floor values of ``1e-20``
@@ -502,11 +668,11 @@ like to see the changes without modifying the file.
 For convenience, we have also included a bash script that will call a version of
 this ``sed`` command (along with ``sed`` commands for the next changelog entry as well)
 to update all inlist files (``inlist*``), which you can run in any work directory
-where you want to update every inlist by invoking ::
+where you want to update every inlist by invoking
 
 .. code-block:: console
 
-  $MESA_DIR/scripts/update_inlists.sh
+    $MESA_DIR/scripts/update_inlists.sh
 
 This script will save the previous versions of your inlists to a directory named
 ``backup_inlists``.
@@ -772,7 +938,7 @@ net
 The derived type net_info (conventional given the symbol ``n``) is no longer a pointer. If you declare a local copy of the variable, you should also ensure to do ``n% g => g`` to make sure that net_info knows
 about the ``net_general_info`` derived type. ``g`` can be had from a call to ``get_net_ptr(handle, g, ierr)``.
 
-The pointer array ``net_work`` and its size ``net_lwork`` have been removed from the net interface, thus these variables should be removed form any ``other_net_get`` and ``other_split_burn`` hooks.
+The pointer array ``net_work`` and its size ``net_lwork`` have been removed from the net interface, thus these variables should be removed from any ``other_net_get`` and ``other_split_burn`` hooks.
 The following routines have also been removed as they are no longer needed ``net_work_size``, ``get_net_rate_ptrs``, ``net_1_zone_burn_work_size``, ``get_burn_work_array_pointers``, ``net_1_zone_burn_const_density_work_size``, and ``get_burn_const_density_work_array_pointers``
 
 Previously you could pass ``arg_not_provided`` for either the temperature (density) or log(temperature) (log(density)). Now you must pass both explicitly.
@@ -780,7 +946,7 @@ Previously you could pass ``arg_not_provided`` for either the temperature (densi
 ADIPLS
 ------
 
-ADIPLS now has a ``USE_ADIPLS`` flag in ``utils/makefile_header`` to enable is build to be disabled.
+ADIPLS now has a ``USE_ADIPLS`` flag in ``utils/makefile_header`` to enable its build to be disabled.
 
 
 Changes in r22.05.1
@@ -1232,7 +1398,7 @@ neu
 The call signature of other_neu has changed. You no longer need to pass in z2bar
 
 
-The value of the Weinberg angle was updated to be be consistent with CODATA 2018.
+The value of the Weinberg angle was updated to be consistent with CODATA 2018.
 
 
 net
@@ -1779,7 +1945,7 @@ rates & net
 
 A number of rates have had their defaults switched to using JINA's REACLIB.
 
-When using a custom user rate (i.e from a rate table) the reverse rate is now computed in detailed
+When using a custom user rate (i.e., from a rate table) the reverse rate is now computed in detailed
 balance from the user rate. Previously the reverse rate was computed using the default rate choice.
 
 A bug with burning li7 at low temperatures rate has been fixed. Users stuck using previous versions of MESA and

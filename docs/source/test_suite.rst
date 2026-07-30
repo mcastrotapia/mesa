@@ -4,7 +4,10 @@
 Test Suite
 **********
 
-MESA includes a comprehensive test suite.
+MESA includes a comprehensive test suite, showcasing MESA's capabilities and serving as a project starting point, but often requiring modifications for science-grade accuracy.
+
+Some test cases include searchable tags. See the generated
+:ref:`tagoverview` page for the current test suite gallery.
 
 Building upon test suite cases
 ------------------------------
@@ -34,7 +37,6 @@ central X of 0.5. To try it yourself,
 ::
 
    cd star/test_suite/high_mass
-   ./mk
    ./rn
 
 You can do the same with any of the ``test_suite`` cases.
@@ -152,7 +154,21 @@ This test suite evolves a 12 |MSun| model from the pre-ms to core collapse.
 :ref:`20M_pre_ms_to_core_collapse`
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This test suite evolves a low metalicity 20 |MSun| model from the pre-ms to core collapse.
+This test suite evolves a low metallicity 20 |MSun| model from the pre-ms to core collapse.
+
+:ref:`make_pre_ccsn_13bvn`
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This test suite evolves a solar-metallicity 12 |MSun| model from the
+pre-main sequence through envelope stripping to core collapse, similar
+to the 13BVN model from MESA IV.
+
+:ref:`zams_to_cc_80 <ZAMS_to_core_collapse_80>`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This test suite evolves a solar-metallicity 80 |MSun| model from the
+pre-main sequence to core collapse with mass loss, producing a
+Wolf-Rayet star below the pair-instability threshold.
 
 
 :ref:`20M_z2m2_high_rotation`
@@ -219,6 +235,12 @@ This test suite example builds a Type IIp supernova model, including Rayleigh-Ta
 This test checks that the atmosphere structure written to the
 pulsation output closely matches what is expected for the
 :math:`T(\tau)` relation specified by ``atm_T_tau_relation``.
+
+:ref:`check_redo`
+^^^^^^^^^^^^^^^^^
+
+This developer test checks that a run with a forced redo gives the
+same answer when restarted from an earlier photo.
 
 
 :ref:`conductive_flame`
@@ -309,6 +331,12 @@ on the horizontal branch (HB) through core helium burning.
 ^^^^^^^^^^^^^^^^
 
 This test case checks the evolution of a 300 |Msun|, Z = 1e-5 metallicity, model through core hydrogen depletion.
+
+:ref:`high_rot_darkening`
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This test case checks rapidly rotating stellar evolution with gravity
+darkening and rotationally enhanced mass loss near critical rotation.
 
 :ref:`high_z`
 ^^^^^^^^^^^^^
@@ -494,6 +522,12 @@ a double-mode delta Scuti variable leaving the main-sequence phase originally co
 This test case checks the non-linear pulsation evolution of a 0.65 |Msun|, Teff = 6500 K, L = 60 Lsun, Z = 0.004 metallicity -
 a long-period RR Lyrae model contributed by Radek Smolec.
 
+:ref:`rsp_gyre`
+^^^^^^^^^^^^^^^
+
+This test case checks the interaction between RSP model construction,
+linear pulsation analysis, and GYRE.
+
 :ref:`rsp_Type_II_Cepheid`
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -583,22 +617,22 @@ III|.
 :ref:`wd_c_core_ignition`
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This test case the checks the onset of a thermonuclear runaway in an accreting Chandrasekhar mass carobon-oxygen white dwarf.
+This test case checks the onset of a thermonuclear runaway in an accreting Chandrasekhar mass carbon-oxygen white dwarf.
 
 :ref:`wd_cool_0.6M`
 ^^^^^^^^^^^^^^^^^^^
 
-This test case the checks the evolution of a cooling, element diffusing 0.6 |Msun| white dwarf.
+This test case checks the evolution of a cooling, element diffusing 0.6 |Msun| white dwarf.
 
 :ref:`wd_diffusion`
 ^^^^^^^^^^^^^^^^^^^
 
-This test case the checks element diffusion in a 0.6 |Msun| carbon-oxygen white dwarf.
+This test case checks element diffusion in a 0.6 |Msun| carbon-oxygen white dwarf.
 
 :ref:`wd_he_shell_ignition`
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This test case the ignition of a helium layer in an accreting in a 0.96 |Msun| carbon-oxygen white dwarf model.
+This test case checks the ignition of a helium layer in an accreting 0.96 |Msun| carbon-oxygen white dwarf model.
 
 :ref:`wd_nova_burst`
 ^^^^^^^^^^^^^^^^^^^^
@@ -614,8 +648,8 @@ This test case checks the evolution stable hydrogen burning on a white dwarf.
 Binary tests
 ------------
 
-double_bh
-^^^^^^^^^
+:ref:`double_bh`
+^^^^^^^^^^^^^^^^
 
 Creates a binary black hole from two stars in a very close orbit
 through the chemically-homogeneous evolution (CHE) mechanism.  Stars
@@ -659,8 +693,8 @@ star_plus_point_mass_explicit_mdot
 Same as above, but run using an explicit calculation for the mass
 transfer rate.
 
-wind_fed_hmxb
-^^^^^^^^^^^^^
+:ref:`wind_fed_bhhmxb`
+^^^^^^^^^^^^^^^^^^^^^^
 
 Model for a high mass X-ray binary, including both Roche lobe overflow
 and wind mass transfer. Verifies the Eddington limit is working, and
@@ -670,10 +704,17 @@ that the accretion luminosity is computed correctly.
 Astero tests
 ------------
 
-astero_adipls and astero_gyre
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+:ref:`astero_adipls`
+^^^^^^^^^^^^^^^^^^^^
 
-Demonstrate how to use the ``astero`` module to call ADIPLS or GYRE, respectively.
+Demonstrates how to use the ``astero`` module to call ADIPLS during a
+main-sequence stellar evolution.
+
+:ref:`astero_gyre`
+^^^^^^^^^^^^^^^^^^
+
+Demonstrates how to use the ``astero`` module to call GYRE during a
+main-sequence stellar evolution.
 
 Both tests use the same main-sequence evolution of a 1.2 |Msun| star,
 so the evolutionary outputs (e.g. ``final.mod``, ``LOGS/history.data``)
@@ -735,4 +776,5 @@ This index only includes tests that are documented via a ``README.rst``.
    :maxdepth: 1
    :glob:
 
+   _tags/tagsindex
    test_suite/*

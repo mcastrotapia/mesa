@@ -3,7 +3,7 @@ program main
    use interp_2d_lib_db, only: interp_mkbicub_db, interp_evbicub_db
    use interp_1d_lib, only: interp_pm, interp_value
    use interp_1d_def, only: pm_work_size
-   use const_def, only: dp
+   use const_def
    use const_lib, only: const_init
    use colors_def
    use colors_lib
@@ -12,36 +12,39 @@ program main
 
    implicit none
 
-   integer :: i, j, k, zone, denjmax, idum, ierr
+   integer :: i, j, k, zone, idum, ierr
+   integer :: colors_handle
    real(dp), allocatable, dimension(:, :) :: &
       r, v, temp, den, kap, tempr, xm, smooth, tau, lum, n_bar, n_e
    real(dp), allocatable, dimension(:) :: &
       t, m, dm, h, he, c, n, o, ne, na, mg, al, si, s, ar, ca, fe, ni
-   real(dp) :: dum, time, X, sum_tau, tauph, tau_extra, denmax, gdepos
-   character(len=132) :: runname, filestr, fname, test_str
+   real(dp) :: dum, time, sum_tau, tauph, tau_extra, gdepos
+   character(len=132) :: filestr, fname, test_str
    character(len=256) :: line, my_mesa_dir
 
    real(dp), parameter :: &
       A_Fe56 = 56d0, lambda0 = 5169.02d-8, f = 0.023d0, Z_div_X_solar = 0.02293d0, &
       tau_sob_hi = 2d0, tau_sob_med = 1d0, tau_sob_lo = 0.2d0
    integer, parameter :: num_logRhos = 41, num_logTs = 117, iounit = 33, &
-                         max_lbol = 10000, n_colors = 5
+                         max_lbol = 10000
    integer :: ilinx, iliny, ibcxmin, ibcxmax, ibcymin, ibcymax, ict(6), num_lbol, num_lbol_max
    real(dp) :: bcxmin(num_logTs), bcxmax(num_logTs), Ts(num_logTs)
    real(dp) :: bcymin(num_logRhos), bcymax(num_logRhos)
    real(dp) :: time_lbol(max_lbol), logL_lbol(max_lbol), t0, logL_lbol_max
-   real(dp), pointer, dimension(:) :: logRhos, logTs, tau_sob_f1, tau_sob_values
+   real(dp), pointer, dimension(:) :: logRhos, logTs, tau_sob_f1
    real(dp), pointer :: tau_sob_f(:, :, :)
-   real(dp) :: tau_prev, tau_sob_prev, alfa, beta, L_div_Lsun, &
+   real(dp) :: tau_sob_prev, alfa, beta, L_div_Lsun, &
                v_sob_hi_tau, m_sob_hi_tau, r_sob_hi_tau, &
                v_sob_med_tau, m_sob_med_tau, r_sob_med_tau, &
                v_sob_lo_tau, m_sob_lo_tau, r_sob_lo_tau, &
-               m_center, r_center, m_edge, r_edge, v_edge, &
+               m_center, r_center, &
                star_mass, mass_IB, skip, Lbol, logRho, logT, eta, &
                density, temperature, n_Fe, tau_sob, time_sec, fval(6), &
-               rphot, mphot, log_g, Xsurf, Ysurf, Zsurf, Fe_H, Z_div_X, &
-               bb_magU, bb_magB, bb_magV, bb_magR, bb_magI
-   integer :: nm, num_models, cnt, k_phot, iday
+               rphot, mphot, log_g, Xsurf, Ysurf, Zsurf, Fe_H, Z_div_X
+   integer :: nm, num_models, k_phot, iday
+   integer :: n_colors_cols, i_col
+   character(len=80), allocatable :: color_names(:)
+   real(dp), allocatable :: color_vals(:)
 
    my_mesa_dir = '../..'
    call const_init(my_mesa_dir, ierr)
@@ -52,13 +55,18 @@ program main
 
    call math_init()
 
-   call colors_init(1, &
-                    [trim(my_mesa_dir)//'/data/colors_data/blackbody_johnson.dat'], &
-                    [n_colors], ierr)
+   call colors_init(.false., '', ierr)
    if (ierr /= 0) then
       write (*, *) 'colors_init failed during initialization'
-      return
+      call mesa_error(__FILE__, __LINE__)
    end if
+
+   colors_handle = alloc_colors_handle(ierr)
+   if (ierr /= 0) stop 'alloc_colors_handle failed'
+
+   ! Query how many color columns (and their names) the handle will produce
+   n_colors_cols = how_many_colors_history_columns(colors_handle)
+   allocate(color_names(max(1, n_colors_cols)), color_vals(max(1, n_colors_cols)))
 
    ! setup interpolation table for tau sob eta
    open (unit=iounit, file='FeII_5169_eta.dat', action='read')
@@ -125,8 +133,8 @@ program main
    tauph = 2d0/3d0
    tau_extra = 5d0
 
-   if (iargc() > 0) then
-      call GetArg(1, filestr)
+   if (command_argument_count() > 0) then
+      call get_command_argument(1, filestr)
    else
       filestr = 'mesa'
    end if
@@ -198,7 +206,7 @@ program main
          !   call mesa_error(__FILE__,__LINE__)
          !end if
          dum = interp_logLbol(time)
-         write (24, '(99(1pe18.6,x))') time - t0, dum, log10(gdepos*1d50)
+         write (24, '(99(1pe18.6,1x))') time - t0, dum, log10(gdepos*1d50)
       end do
    end do
 
@@ -242,15 +250,23 @@ program main
    star_mass = m(zone)
    mass_IB = m(1)
 
-   write (23, '(a)') '# photosphere.  bb_mag* are synthetic color magnitudes from mesa/colors.' &
+   write (23, '(a)') '# photosphere.  mag columns are synthetic color magnitudes from mesa/colors.' &
       //'  see mesa.tt for stella color magnitudes from multiband rad-hydro.'
-   write (23, '(a4,99(a18,x))') 'k', 't post max Lbol', 'radius(cm)', 'v(km/s)', 'mass(Msun)', &
-      'logT', 'rho', 'kap', 'h', 'he', 'o', 'fe', 'tau_IB', 'Lbol', &
-      'bb_magU', 'bb_magB', 'bb_magV', 'bb_magR', 'bb_magI', 'T_rad'
+   write (23, '(a4,99(a18,1x))', advance='no') 'k', 't post max Lbol', 'radius(cm)', 'v(km/s)', 'mass(Msun)', &
+      'logT', 'rho', 'kap', 'h', 'he', 'o', 'fe', 'tau_IB', 'Lbol'
+   if (n_colors_cols > 0) then
+      ! Get names by doing a dummy call at safe values; just use the names from the first call
+      call data_for_colors_history_columns(1d4, 4.0d0, Rsun, 0d0, 0, colors_handle, &
+                                           n_colors_cols, color_names, color_vals, ierr)
+      do i_col = 1, n_colors_cols
+         write (23, '(a18,1x)', advance='no') trim(color_names(i_col))
+      end do
+   end if
+   write (23, '(a18)') 'T_rad'
 
    write (24, '(a,3f8.3)') '# v where tau Sob for FeII 5169 is (low,medium,high) ', &
       tau_sob_lo, tau_sob_med, tau_sob_hi
-   write (24, '(5x,99(a18,x))') &
+   write (24, '(5x,99(a18,1x))') &
       't post max Lbol', 'v_tau_lo', 'v_tau_med', 'v_tau_hi', 'rho', 'T', 'eta', &
       'm_tau_lo', 'r_tau_lo', 'm_tau_med', 'r_tau_med', 'm_tau_hi', 'r_tau_hi'
    write (27, '(99(a13))') 't-t0', 'tau', 'rho', 'T', 'r', 'v'
@@ -358,17 +374,20 @@ program main
                Zsurf = max(1d-99, min(1d0, 1d0 - (Xsurf + Ysurf)))
                Z_div_X = Zsurf/max(1d-99, Xsurf)
                Fe_H = log10(Z_div_X/Z_div_X_solar)
-               bb_magU = get1_synthetic_color_abs_mag('bb_U')
-               bb_magB = get1_synthetic_color_abs_mag('bb_B')
-               bb_magV = get1_synthetic_color_abs_mag('bb_V')
-               bb_magR = get1_synthetic_color_abs_mag('bb_R')
-               bb_magI = get1_synthetic_color_abs_mag('bb_I')
-               write (23, '(i5,99(1pe18.6,x))') j, time - t0, &
+               if (n_colors_cols > 0) then
+                  call data_for_colors_history_columns(10d0**logT, log_g, rphot, Fe_H, 0, &
+                     colors_handle, n_colors_cols, color_names, color_vals, ierr)
+                  if (ierr /= 0) color_vals(:) = -99d0
+               end if
+               write (23, '(i5,99(1pe18.6,1x))', advance='no') j, time - t0, &
                   rphot, (alfa*v(j, nm) + beta*v(j - 1, nm))*1d3, mphot, logT, &
                   alfa*den(j, nm) + beta*den(j - 1, nm), alfa*kap(j, nm) + beta*kap(j - 1, nm), &
                   Xsurf, Ysurf, alfa*o(j) + beta*o(j - 1), alfa*fe(j) + beta*fe(j - 1), &
-                  sum_tau, Lbol, bb_magU, bb_magB, bb_magV, bb_magR, bb_magI, &
-                  alfa*tempr(j, nm) + beta*tempr(j - 1, nm)
+                  sum_tau, Lbol
+               do i_col = 1, n_colors_cols
+                  write (23, '(1pe18.6,1x)', advance='no') color_vals(i_col)
+               end do
+               write (23, '(1pe18.6)') alfa*tempr(j, nm) + beta*tempr(j - 1, nm)
                exit
             end if
          end do
@@ -438,7 +457,7 @@ program main
             m_sob_hi_tau = star_mass - (alfa*xm(k, nm) + beta*xm(k + 1, nm))
             r_sob_hi_tau = alfa*r(k, nm) + beta*r(k + 1, nm)
             if (k > k_phot - 10) &
-               write (24, '(i5,99(1pe18.4,x))') k, time - t0, &
+               write (24, '(i5,99(1pe18.4,1x))') k, time - t0, &
                v_sob_lo_tau*1d3, v_sob_med_tau*1d3, v_sob_hi_tau*1d3, &
                10**logRho, 10**logT, eta, &
                m_sob_lo_tau, r_sob_lo_tau, &
@@ -492,6 +511,9 @@ program main
    write (*, *) 'write '//trim(filestr)//'.inner_boundary.txt'
    write (*, *) 'done'
 
+   call free_colors_handle(colors_handle)
+   call colors_shutdown
+
 contains
 
    real(dp) function interp_logLbol(time)
@@ -509,16 +531,6 @@ contains
       interp_logLbol = logL_lbol(num_lbol)
    end function interp_logLbol
 
-   real(dp) function get1_synthetic_color_abs_mag(name) result(mag)
-      character(len=*) :: name
-      mag = get_abs_mag_by_name(name, logT, log_g, Fe_H, L_div_Lsun, ierr)
-      if (ierr /= 0) then
-         write (*, *) 'failed in get_abs_mag_by_id '//trim(name), &
-            time, logT, log_g, Fe_H, Lbol
-         call mesa_error(__FILE__, __LINE__)
-      end if
-   end function get1_synthetic_color_abs_mag
-
    subroutine save_day_post_Lbol_max(day, t0, zone, star_mass, mass_IB, daystr)
       real(dp), intent(in) :: day, t0, star_mass, mass_IB
       integer, intent(in) :: zone
@@ -526,7 +538,7 @@ contains
 
       integer, parameter :: io = 26, ncol = 36
       real(dp) :: tnm, t1, t2, alfa, beta, data1(ncol), data2(ncol)
-      integer :: k, i, nm1, nm2
+      integer :: k, nm1, nm2
       character(len=132) :: fname
       include 'formats'
 
